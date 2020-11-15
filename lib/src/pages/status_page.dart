@@ -10,8 +10,22 @@ class StausPage extends StatelessWidget {
     final socketService = Provider.of<SocketService>(context);
     return Scaffold(
       body: Center(
-        child: Text('Hola Mundo'),
-     ),
-   );
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Server Status: ${socketService.serverStatus}')
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.message),
+        onPressed: (){
+          socketService.socket.emit('flutter-message',{
+            'name':'rodrigo',
+            'message':'Hola desde flutter'
+          });
+        },
+      ),
+    );
   }
 }

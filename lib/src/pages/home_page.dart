@@ -1,7 +1,10 @@
 import 'dart:io';
-
+import 'package:pie_chart/pie_chart.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:votes/src/services/socket.dart';
 import 'package:votes/src/models/person.dart';
 
 class HomePage extends StatefulWidget {
@@ -12,25 +15,53 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  List<Person> people =[
-    Person(id: '1',name: 'Rodrigo',votes: 5),
-    Person(id: '2',name: 'Elvis',votes: 2),
-    Person(id: '3',name: 'Ian',votes: 1),
-    Person(id: '4',name: 'Sol',votes: 6),
-  ];
+  List<Person> people =[];
+
+  @override
+  void initState() {
+    final socketService = Provider.of<SocketService>(context, listen: false);
+    socketService.socket.on('persons', _handlePersons);
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    final socketService = Provider.of<SocketService>(context);
+    socketService.socket.off('persons');
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final socketService = Provider.of<SocketService>(context);
     return Scaffold(
-      appBar: AppBar(title: Center(child: Text('Votos',style: TextStyle(color: Colors.black),)),backgroundColor: Colors.white,elevation: 1,),
-      body: ListView.builder(
-        itemCount: people.length,
-        itemBuilder: (BuildContext context, int index) {
-          return _voteItem(people[index]);
-        },
+      appBar: AppBar(
+        title: Center(child: Text('Votos',style: TextStyle(color: Colors.black),)),
+        backgroundColor: Colors.white,elevation: 1,
+        actions: [
+          Container(
+            padding: EdgeInsets.only(right:15),
+            child: Center(child: FaIcon(FontAwesomeIcons.plug,color:
+              (socketService.serverStatus == ServerStatus.Online)?Colors.green:Colors.grey
+            )),
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          if(people.isNotEmpty) _showGraph(context),
+          Expanded(
+            child: ListView.builder(
+              itemCount: people.length,
+              itemBuilder: (BuildContext context, int index) {
+                return _voteItem(people[index]);
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addPerson,
+        onPressed: () => _addPerson(socketService),
         child: Icon(Icons.add),
         backgroundColor: Colors.orange[800],
         elevation: 1,
@@ -38,15 +69,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  _handlePersons(dynamic data) {
+    this.people = (data as List)
+      .map((person) 
+        => Person.fromMap(person)).toList();
+    setState(() {});
+  }
+
   Widget _voteItem(Person person) {
+    final socketService = Provider.of<SocketService>(context);
     return Dismissible(
       key: Key(person.id),
       direction: DismissDirection.startToEnd,
-      onDismissed: (direction){ 
-        //person.id;
-        //TODO: Borrar item en el server
-        people.remove(person); //borrar esto
-      },
+      onDismissed: (_) => socketService.socket.emit('person-delete',{'id':person.id}),
       background: Container(
         padding: EdgeInsets.only(left:20),
         alignment: Alignment.centerLeft,
@@ -60,12 +95,12 @@ class _HomePageState extends State<HomePage> {
         ),
         title: Text(person.name),
         trailing: Text('${person.votes}',style: TextStyle(fontSize: 20),),
-        onTap: (){},
+        onTap: () => socketService.socket.emit('person-vote',{'id':person.id}),
       ),
     );
   }
 
-  _addPerson(){
+  _addPerson(SocketService socketService){
     final textController = TextEditingController();
 
     if(Platform.isAndroid)
@@ -80,7 +115,7 @@ class _HomePageState extends State<HomePage> {
                 child: Text('Agregar'),
                 elevation: 3,
                 textColor: Colors.orange[700],
-                onPressed:() => addToList(textController.text)
+                onPressed:() => _addToList(textController.text,socketService)
               ),
             ],
           );
@@ -97,7 +132,7 @@ class _HomePageState extends State<HomePage> {
               CupertinoDialogAction(
                 isDefaultAction: true,
                 child: Text('Agregar'),
-                onPressed:() => addToList(textController.text),
+                onPressed:() => _addToList(textController.text,socketService),
               ),
               CupertinoDialogAction(
                 isDestructiveAction: true,
@@ -110,11 +145,26 @@ class _HomePageState extends State<HomePage> {
       );
   }
 
-  addToList(String text) {
+  _addToList(String text,SocketService socketService) {
     if(text.length>1){
-      this.people.add(Person(id: '${DateTime.now()}',name: text,votes: 0));
+      //this.people.add(Person(id: '${DateTime.now()}',name: text,votes: 0));
+      socketService.socket.emit('person-add',{'name':text});
       setState(() {});
     }
     Navigator.pop(context);            
   }
+  
+  Widget _showGraph(BuildContext context){
+    Map<String, double> dataMap = Map();
+    people.forEach((e) {
+      dataMap.putIfAbsent(e.name, () => e.votes.toDouble());
+    });
+    return Container(
+      margin: EdgeInsets.symmetric(vertical:15),
+      width: double.infinity,
+      height: MediaQuery.of(context).size.height*0.25,
+      child: PieChart(dataMap: dataMap,chartType: ChartType.ring,)
+    );
+  }
 }
+
