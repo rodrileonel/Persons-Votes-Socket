@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:votes/src/services/socket.dart';
 
 
-class StausPage extends StatelessWidget {
+class StatusPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {

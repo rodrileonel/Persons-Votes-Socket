@@ -71,8 +71,8 @@ class _HomePageState extends State<HomePage> {
 
   _handlePersons(dynamic data) {
     this.people = (data as List)
-      .map((person) 
-        => Person.fromMap(person)).toList();
+      .map((person) => Person.fromMap(person))
+      .toList();
     setState(() {});
   }
 

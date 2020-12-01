@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/',
         routes: {
           '/':(_)=> HomePage(),
-          'status':(_)=> StausPage(),
+          'status':(_)=> StatusPage(),
         },
       ),
     );
